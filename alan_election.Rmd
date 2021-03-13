@@ -1,0 +1,326 @@
+---
+title: "alan_election"
+author: "Alan Wang"
+date: "3/12/2021"
+output: html_document
+---
+
+```{r}
+load("County_Stats.RData")
+load("State_Stats.RData")
+load("Covid_Summ.RData")
+load("biden_polls.RData")
+load("trump_polls.RData")
+```
+
+```{r}
+library(gganimate)
+library(ggplot2)
+library(plotly)
+library(showtext)
+library(ggimage)
+library(ggthemes)
+library(rjson)
+library(usdata)
+```
+
+```{r}
+showtext_auto()
+font_add(family = "Benton Sans", regular = "/Users/alanwang/Downloads/Font_Bureau_Benton_Sans/TTF/BentonSans-Regular.ttf")
+```
+
+
+### Animated Time Series Visualizations
+```{r}
+options(gganimate.fps = 15)
+
+# Trump Time Series
+ggplot(data = YouGov_summ_Trump, mapping = aes(x=month_date, y = avg_pct)) + 
+  geom_line(color = "red", alpha = 0.9) +
+  geom_area(fill = "red", alpha = 0.4) +
+  geom_image(aes(image = image), size = .15) +
+  coord_cartesian(ylim=c(41,47)) + 
+  ggtitle("Election Polls for Trump") + 
+  theme_fivethirtyeight()+
+  theme(plot.title = element_text(hjust = 0.5,
+                                  size = 27,
+                                  family = "Benton Sans", face = "bold"),
+        text=element_text(size=16,  family="Benton Sans"))+
+  ylab("Result (%)") + 
+  transition_reveal(month_date)
+
+# Biden Time Series
+ggplot(data = YouGov_summ_Biden, mapping = aes(x=month_date, y = avg_pct)) +
+  geom_line(color = "cornflowerblue", alpha = 0.9) +
+  geom_area(fill = "cornflowerblue", alpha = 0.4) +
+  geom_image(aes(image = image), size = 0.16) +
+  coord_cartesian(ylim=c(41,51)) +
+  ggtitle("Election Polls for Biden") +
+  theme_fivethirtyeight() +
+  theme(plot.title = element_text(hjust = 0.5,
+                                  size = 27,
+                                  family = "Benton Sans", face = "bold"),
+        text=element_text(size=16,  family="Benton Sans")) +
+  ylab("Result (%)") + 
+  transition_reveal(month_date) 
+
+# Trump and Biden Time Series
+ggplot(data = YouGov_summ_Biden, 
+       mapping = aes(
+         x=month_date, 
+         y = avg_pct)
+       ) +
+  geom_line(color = "cornflowerblue", 
+            alpha = 0.9) +
+  geom_area(fill = "cornflowerblue", 
+            alpha = 0.3) +
+  geom_image(aes(image = image),
+             size = 0.15) +
+  coord_cartesian(ylim=c(41,51)) +
+  geom_line(data = YouGov_summ_Trump,
+            mapping = aes(
+              x=month_date, y = avg_pct),
+            color = "red", 
+            alpha = 0.9) +
+  geom_area(data = YouGov_summ_Trump, fill = "red", alpha = 0.3) +
+  geom_image(data = YouGov_summ_Trump,aes(image = image),
+             size = 0.15) +
+  theme_fivethirtyeight() +
+  ggtitle("2020 Presidential Election Polls") + 
+  ylab("Result (%)") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 27, face = "bold"),
+        text=element_text(size=16,  family="Benton Sans")) +
+  transition_reveal(month_date)
+
+# Coronavirus Time Series
+ggplot(data = covid_data3, 
+       mapping = aes(date, covid_cases)) + 
+  geom_line(color = "#ff8243", alpha = 0.9) +
+  geom_area(fill =	"#ff8243",alpha = 0.4) + 
+  geom_point(color = "#ff8243", alpha = 0.9, size = 3.5) +
+  ggtitle("Cumulative Coronavirus Cases") +
+  theme_fivethirtyeight()+
+  theme(plot.title = element_text(hjust = 0.5,
+                                  size = 27,
+                                  family = "Benton Sans", face = "bold"),
+        text=element_text(size=16,  family="Benton Sans"))+
+  
+  transition_reveal(date) +
+  ease_aes('cubic-in-out')
+```
+
+
+
+### Choropleth Visualizations by State
+```{r}
+# Covid Cases by State
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_geo(state_statistics, locationmode = 'USA-states')
+fig
+fig <- fig %>% add_trace(
+    locations=state_statistics$state,
+    z=state_statistics$state_cases_by_pop,
+    colorscale = list(c(0,"white"),c(1,"#ff7f50")),
+    #colorscale= list(c(0,"#F08080"), c(0.072, "#F0FFF0"), c(1,"#6EFF70")),
+    marker=list(line=list(
+      width=0.5,
+      color = "black")
+    )
+  )
+
+font_add(family = "Benton Sans", regular = "/Users/alanwang/Downloads/Font_Bureau_Benton_Sans/TTF/BentonSans-Regular.ttf")
+showtext_auto()
+fig <- fig %>% colorbar(title = list(font = list(family = "Benton Sans"), text = "Covid-19 Cases\nby State\nPopulation (%)"))
+fig <- fig %>% layout(
+    title = list(font = list(size = 18, family = "Benton Sans"), text = "\nCovid Cases during Election")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig
+```
+
+```{r}
+# Voter Turnout Changes 
+states <- rjson::fromJSON(file="geojson-counties-fips.json") ## this is where you get fips for each county
+summary(state_statistics$state_difference_in_votes)
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_geo(state_statistics, locationmode = 'USA-states')
+fig
+fig <- fig %>% add_trace(
+    locations=state_statistics$state,
+    z=state_statistics$state_difference_in_votesp,
+    colorscale= list(c(0,"#F08080"), c(0.72, "#F0FFF0"), c(1,"#98FB98")),
+    zmin=-50,
+    zmax=19,
+    marker=list(line=list(
+      width=0.5,
+      color = "black")
+    ),
+    hovertext = paste(abbr2state(state_statistics$state), "\n", format(round(state_statistics$state_difference_in_votesp,2),nsmall=2), "%", "\n"),
+    hoverinfo = "text"
+  )
+fig <- fig %>% colorbar(font = list(family = "Benton Sans"),title = "Change in\nVoter Turnout\n2020-2016 (%)")
+fig <- fig %>% layout(
+    title = list(font = list(family = "Benton Sans", size = 19), text = "\nVoter Turnout Changes Between Elections")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig
+```
+
+
+```{r}
+# Democratic Voter Turnout Changes 
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_geo(state_statistics, locationmode = 'USA-states')
+fig <- fig %>% add_trace(
+    locations=state_statistics$state,
+    z=state_statistics$state_percentage_difference_in_votes20_Joe_Biden * 100,
+    colorscale = list(c(0,"#DC143C"),c(0.4375, "White"), c(1,"#42C0FB")),
+    #colorscale= list(c(0,"#ff4747"), c(0.4375, "white"), c(1,"#66FF66")),
+    zmin = -14,
+    zmax = 18,
+    marker=list(line=list(
+      width=0.5,
+      color = "black")
+    ),
+    hovertext = paste(abbr2state(state_statistics$state), "\n", format(round(state_statistics$state_percentage_difference_in_votes20_Joe_Biden * 100,2),nsmall=2), "%", "\n"),
+    hoverinfo = "text"
+  )
+
+library(usdata)
+
+fig <- fig %>% colorbar(title = "   Change in\nVoter Turnout\n (%)")
+fig <- fig %>% layout(
+    title = list(font = list(family = "Benton Sans", size = 20), text = "\nVoter Support Changes Between Elections for Democrats")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig
+
+```
+
+```{r}
+# Republican Voter Turnout Changes 
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_geo(state_statistics, locationmode = 'USA-states')
+fig <- fig %>% add_trace(
+    locations=state_statistics$state,
+    z=state_statistics$state_percentage_difference_in_votes20_Donald_Trump * 100,
+    colorscale = list(c(0,"#42C0FB"),c(0.4375, "White"), c(1,"#DC143C")),
+    #colorscale= list(c(0,"#ff4747"), c(0.4375, "white"), c(1,"#66FF66")),
+    zmin = -14,
+    zmax = 18,
+    marker=list(line=list(
+      width=0.5,
+      color = "black")
+    ),
+     hovertext = paste(abbr2state(state_statistics$state), "\n", format(round(state_statistics$state_percentage_difference_in_votes20_Donald_Trump * 100,2),nsmall=2), "%", "\n"),
+    hoverinfo = "text"
+  )
+fig <- fig %>% colorbar(title = list(font = list(family="Benton Sans"), text = "Change in\nVoter Turnout\n (%)"))
+fig <- fig %>% layout(
+    title = list(font = list(size = 18, family = "Benton Sans"), text = "\nVoter Support Changes for Republicans\nbetween Elections")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig
+```
+
+
+
+
+
+### Choropleth Visualizations by County
+```{r}
+counties <- rjson::fromJSON(file="geojson-counties-fips.json") ## this is where you get fips for each county
+```
+
+```{r}
+# Covid Cases 
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_ly()
+fig <- fig %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=county_statistics$fips,
+    z=county_statistics$cases_by_pop,
+    colorscale = list(c(0,"white"),c(1,"#ff7f50")),
+    zmin=0,
+    zmax=6,
+    marker=list(line=list(
+      width=0)
+    )
+  )
+fig <- fig %>% colorbar(title = "   Covid Cases\nAmong Population\n (%)")
+fig <- fig %>% layout(
+    title = list(font = list(family = "Benton Sans", size = 20), text = "\nCovid Cases by County")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig
+
+```
+
+
+```{r}
+# Democratic Voter Turnout By County
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+fig <- plot_ly()
+fig <- fig %>% add_trace(
+    type="choropleth",
+    geojson=counties,
+    locations=county_statistics$fips,
+    z=county_statistics$percentage_difference_in_votes_Joe_Biden,
+    colorscale = list(c(0,"#DC143C"),c(0.666666, "White"), c(1,"	#42C0FB")),
+    zmin = -20,
+    zmax = 10,
+    marker = list(line=list(width = 0)),
+    hovertext = paste(county_statistics$county, "\n", abbr2state(county_statistics$state), "\n", format(round(county_statistics$percentage_difference_in_votes_Joe_Biden * 100,2),nsmall=2), "%", "\n"),
+    hoverinfo = "text"
+  )
+fig <- fig %>% colorbar(title = "Voter Turnout\nDifference (%)")
+fig <- fig %>% layout(
+    title = list(font = list(family = "Benton Sans", size = 19), text = "\nVoter Support Changes Between Elections for Democrats\nBy County")
+)
+fig <- fig %>% layout(
+    geo = g
+  )
+fig %>% add_trace(state_statistics, type = "choropleth", locationmode = "USA-states", marker = list(line=list(width = 10, color = "Red"), opacity = 0), showscale = FALSE)
+```
+
